@@ -62,6 +62,6 @@
          "url" : "http://github.com/lestrrat/ZMQ-Perl"
       }
    },
-   "version" : "1.00_01",
+   "version" : "1.00_02",
    "x_module_name" : "ZMQ"
 }
