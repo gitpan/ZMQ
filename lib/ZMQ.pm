@@ -22,6 +22,11 @@ sub import {
     }
 }
 
+sub version {
+    my ($major, $minor, $patch) = ZMQ::Raw::zmq_version();
+    wantarray ? ($major, $minor, $patch) : join '.', $major, $minor, $patch;
+}
+
 1;
 __END__
 
@@ -50,6 +55,7 @@ ZMQ - A libzmq wrapper for Perl
 
     my $ctxt = zmq_init($threads);
     my $rv   = zmq_term($ctxt);
+    my $num  = zmq_errno();
 
     my $rv   = zmq_connect( $socket, $where );
     my $rv   = zmq_bind( $socket, $where );
@@ -67,6 +73,8 @@ ZMQ - A libzmq wrapper for Perl
     my $rv   = zmq_setsockopt( $socket, $option, $value );
     my $val  = zmq_getsockopt( $socket, $option );
     my $rv   = zmq_bind( $sock, $addr );
+    my $rv   = zmq_send( $sock, $data, $len, $flags );
+    my $rv   = zmq_recv( $sock, $buffer, $len, $flags );
     my $rv   = zmq_sendmsg( $sock, $msg, $flags );
     my $msg  = zmq_recvmsg( $sock, $flags );
 
@@ -174,6 +182,23 @@ Or, you may choose use C<recv()>, if you know the amount of data you wanted to r
     my $length = ...;
     my $n_read = $socket->recv( $buf, $length );
 
+=head1 ERRORS
+
+Once you spot that a ZMQ operation failed either because an exception was raised or because the return value indicated an error, ZMQ errors are available either from C<zmq_errno()> and C<zmq_strerror()> functions, or the C<$!> global variable.
+
+    use ZMQ;
+    use ZMQ::Raw qw(zmq_errno);
+
+    ...
+    eval { $socket->connect(...) };
+
+    # then...
+    my $errno = zmq_errno();
+    warn zmq_strerror($errno);
+
+    # or...
+    warn "$!";
+
 =head1 ASYNCHRONOUS I/O WITH ZEROMQ
 
 By default ZMQ comes with its own zmq_poll() mechanism that can handle
@@ -195,7 +220,7 @@ hashrefs:
 
 Unfortunately this custom polling scheme doesn't play too well with AnyEvent.
 
-As of zeromq2-2.1.0, you can use getsockopt to retrieve the underlying file
+As an alternative you can use getsockopt to retrieve the underlying file
 descriptor, so use that to integrate ZMQ and AnyEvent:
 
     my $socket = zmq_socket( $ctxt, ZMQ_REP );
@@ -255,7 +280,7 @@ Please put this in your bug report.
 This is an early release. Proceed with caution, please report
 (or better yet: fix) bugs you encounter.
 
-This module has been tested againt B<zeromq 2.1.4>. Semantics of this
+This module has been tested againt B<zeromq 3.1.1>. Semantics of this
 module rely heavily on the underlying zeromq version. Make sure
 you know which version of zeromq you're working with.
 

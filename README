@@ -20,6 +20,7 @@ SYNOPSIS ( LOW-LEVEL API )
 
         my $ctxt = zmq_init($threads);
         my $rv   = zmq_term($ctxt);
+        my $num  = zmq_errno();
 
         my $rv   = zmq_connect( $socket, $where );
         my $rv   = zmq_bind( $socket, $where );
@@ -37,6 +38,8 @@ SYNOPSIS ( LOW-LEVEL API )
         my $rv   = zmq_setsockopt( $socket, $option, $value );
         my $val  = zmq_getsockopt( $socket, $option );
         my $rv   = zmq_bind( $sock, $addr );
+        my $rv   = zmq_send( $sock, $data, $len, $flags );
+        my $rv   = zmq_recv( $sock, $buffer, $len, $flags );
         my $rv   = zmq_sendmsg( $sock, $msg, $flags );
         my $msg  = zmq_recvmsg( $sock, $flags );
 
@@ -146,6 +149,25 @@ BASIC USAGE
         my $length = ...;
         my $n_read = $socket->recv( $buf, $length );
 
+ERRORS
+    Once you spot that a ZMQ operation failed either because an exception
+    was raised or because the return value indicated an error, ZMQ errors
+    are available either from "zmq_errno()" and "zmq_strerror()" functions,
+    or the $! global variable.
+
+        use ZMQ;
+        use ZMQ::Raw qw(zmq_errno);
+
+        ...
+        eval { $socket->connect(...) };
+
+        # then...
+        my $errno = zmq_errno();
+        warn zmq_strerror($errno);
+
+        # or...
+        warn "$!";
+
 ASYNCHRONOUS I/O WITH ZEROMQ
     By default ZMQ comes with its own zmq_poll() mechanism that can handle
     non-blocking sockets. You can use this by calling zmq_poll with a list
@@ -167,8 +189,8 @@ ASYNCHRONOUS I/O WITH ZEROMQ
     Unfortunately this custom polling scheme doesn't play too well with
     AnyEvent.
 
-    As of zeromq2-2.1.0, you can use getsockopt to retrieve the underlying
-    file descriptor, so use that to integrate ZMQ and AnyEvent:
+    As an alternative you can use getsockopt to retrieve the underlying file
+    descriptor, so use that to integrate ZMQ and AnyEvent:
 
         my $socket = zmq_socket( $ctxt, ZMQ_REP );
         my $fh = zmq_getsockopt( $socket, ZMQ_FD );
@@ -225,7 +247,7 @@ CAVEATS
     This is an early release. Proceed with caution, please report (or better
     yet: fix) bugs you encounter.
 
-    This module has been tested againt zeromq 2.1.4. Semantics of this
+    This module has been tested againt zeromq 3.1.1. Semantics of this
     module rely heavily on the underlying zeromq version. Make sure you know
     which version of zeromq you're working with.
 

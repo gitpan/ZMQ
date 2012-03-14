@@ -3,7 +3,7 @@ use strict;
 use XSLoader;
 
 BEGIN {
-    our $VERSION = '1.00_02';
+    our $VERSION = '1.00_03';
 
     our @ISA = qw(Exporter);
     # XXX it's a hassle, but keep it in sync with ZMQ.pm
@@ -16,6 +16,8 @@ our @EXPORT = qw(
     zmq_init
     zmq_term
     zmq_errno
+    zmq_strerror
+    zmq_version
 
     zmq_msg_close
     zmq_msg_data
@@ -59,6 +61,12 @@ ZMQ::Raw - Low-level API for ZMQ
     $errno = zmq_errno()
 
 Returns the previou value set to libzmq's errno 
+
+=head2 zmq_strerror( $err )
+
+=head2 zmq_version
+
+    ($major, $minor, $patch) = zmq_version()
 
 =head2 zmq_term
 
