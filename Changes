@@ -1,5 +1,12 @@
 Changelog for Perl module ZMQ.
 
+1.00_04 - Mar 26 2012
+  [INCOMPATIBLE CHANGES]
+  - Now ZMQ.pm is just a pure-perl wrapper around ZMQ::LibZMQ2 or ZMQ::LibZMQ3.
+    ZMQ::Raw has been removed.
+  - Fix sendmsg_as()
+  - Repositories have been consolidated. see https://github.com/lestrrat/p5-ZMQ/
+
 1.00_03 - Mar 14 2012
   [DOCUMENTATION]
   - Add section on errors
@@ -194,4 +201,3 @@ Changelog for Perl module ZMQ.
 
 0.01  Tue Jul 13 2010 20:00 CET
   - Initial release
-

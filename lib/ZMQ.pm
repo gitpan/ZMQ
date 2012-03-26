@@ -1,311 +1,112 @@
 package ZMQ;
 use strict;
-use ZMQ::Raw ();
+our $VERSION = '1.00';
+our $BACKEND;
 BEGIN {
-    our $VERSION = $ZMQ::Raw::VERSION;
-    our @ISA = qw(Exporter);
+    $BACKEND ||= $ENV{PERL_ZMQ_BACKEND};
+    if ( $BACKEND ) {
+        eval "require $BACKEND";
+        if ($@) {
+            die $@;
+        }
+    } else {
+        foreach my $lib ( qw(ZMQ::LibZMQ2 ZMQ::LibZMQ3) ) {
+            eval "require $lib";
+            if ($@) {
+                next;
+            }
+            $BACKEND = $lib;
+        }
+    }
+
+    if (! $BACKEND) {
+        die "Could not find a suitable backend for ZMQ";
+    }
 }
 
 use ZMQ::Context;
 use ZMQ::Socket;
 use ZMQ::Message;
-use ZMQ::Poller;
-use ZMQ::Constants;
-use 5.008;
-use Carp ();
-use IO::Handle;
 
-sub import {
-    my $class = shift;
-    if (@_) {
-        ZMQ::Constants->export_to_level( 1, $class, @_ );
-    }
-}
-
-sub version {
-    my ($major, $minor, $patch) = ZMQ::Raw::zmq_version();
-    wantarray ? ($major, $minor, $patch) : join '.', $major, $minor, $patch;
+sub call {
+    my $funcname = shift;
+    no strict 'refs';
+    goto &{"${BACKEND}::$funcname"};
 }
 
 1;
+
 __END__
 
 =head1 NAME
 
-ZMQ - A libzmq wrapper for Perl
+ZMQ - Perl-ish Interface libzmq 
 
-=head1 SYNOPSIS ( HIGH-LEVEL API )
+=head1 SYNOPSIS
 
-    # echo server
-    use ZMQ qw/:all/;
+    use ZMQ;
+    use ZMQ::Constants qw(ZMQ_PUB);
 
-    my $cxt = ZMQ::Context->new;
-    my $sock = $cxt->socket(ZMQ_REP);
-    $sock->bind($addr);
-  
-    my $msg;
-    foreach (1..$roundtrip_count) {
-        $msg = $sock->recvmsg();
-        $sock->sendmsg($msg);
+    my $cxt = ZMQ::Context->new(5);
+    my $sock = $cxt->socket( ZMQ_PUB );
+    $sock->bind( "tcp://192.168.11.5:9999" );
+
+    if ( $ZMQ::BACKEND eq 'ZMQ::LibZMQ2' ) {
+        $sock->send( ZMQ::Message->new( "Hello" ) );
+    } elsif ( $ZMQ::BACKEND eq 'ZMQ::LibZMQ3' ) {
+        $sock->sendmsg( ZMQ::Message->new( "Hello" ) );
     }
-
-=head1 SYNOPSIS ( LOW-LEVEL API )
-
-    use ZMQ::Raw;
-
-    my $ctxt = zmq_init($threads);
-    my $rv   = zmq_term($ctxt);
-    my $num  = zmq_errno();
-
-    my $rv   = zmq_connect( $socket, $where );
-    my $rv   = zmq_bind( $socket, $where );
-    my $msg  = zmq_msg_init();
-    my $msg  = zmq_msg_init_size( $size );
-    my $msg  = zmq_msg_init_data( $data );
-    my $rv   = zmq_msg_close( $msg );
-    my $rv   = zmq_msg_move( $dest, $src );
-    my $rv   = zmq_msg_copy( $dest, $src );
-    my $data = zmq_msg_data( $msg );
-    my $size = zmq_msg_size( $msg);
-
-    my $sock = zmq_socket( $ctxt, $type );
-    my $rv   = zmq_close( $sock );
-    my $rv   = zmq_setsockopt( $socket, $option, $value );
-    my $val  = zmq_getsockopt( $socket, $option );
-    my $rv   = zmq_bind( $sock, $addr );
-    my $rv   = zmq_send( $sock, $data, $len, $flags );
-    my $rv   = zmq_recv( $sock, $buffer, $len, $flags );
-    my $rv   = zmq_sendmsg( $sock, $msg, $flags );
-    my $msg  = zmq_recvmsg( $sock, $flags );
-
-=head1 INSTALLATION
-
-If you have libzmq registered with pkg-config:
-
-    perl Makefile.PL
-    make 
-    make test
-    make install
-
-If you don't have pkg-config, and libzmq is installed under /usr/local/libzmq:
-
-    ZMQ_HOME=/usr/local/libzmq \
-        perl Makefile.PL
-    make
-    make test
-    make install
-
-If you want to customize include directories and such:
-
-    ZMQ_INCLUDES=/path/to/libzmq/include \
-    ZMQ_LIBS=/path/to/libzmq/lib \
-    ZMQ_H=/path/to/libzmq/include/zmq.h \
-        perl Makefile.PL
-    make
-    make test
-    make install
-
-If you want to compile with debugging on:
-
-    perl Makefile.PL -g
 
 =head1 DESCRIPTION
 
-The C<ZMQ> module is a wrapper of the 0MQ message passing library for Perl. 
-It's a thin wrapper around the C API. Please read L<http://zeromq.org> for
-more details on ZMQ.
+ZMQ is a Perl-ish wrapper for libzmq. It uses ZMQ::LibZMQ2 or ZMQ::LibZMQ3 (ZMQ::LibZMQ2 is the default)
 
-=head1 CLASS WALKTHROUGH
+If you want a one-to-one direct mapping to libzmq, then you should be using ZMQ::LibZMQ2, ZMQ::LibZMQ3 directly
 
-=over 4
+ZMQ will automatically choose the backend (either ZMQ::LibZMQ2 or ZMQ::LibZMQ3) to use. This can be explicitly specified by setting C<PERL_ZMQ_BACKEND> environment variable.
 
-=item ZMQ::Raw
+By default ZMQ::LibZMQ2 will be used as the backend. This may change in future
+versions, so make sure to explicitly set your backend if you don't want it to
+change:
 
-Use L<ZMQ::Raw> to get access to the C API such as C<zmq_init>, C<zmq_socket>, et al. Functions provided in this low level API should follow the C API exactly.
-
-=item ZMQ::Constants
-
-L<ZMQ::Constants> contains all of the constants that are known to be extractable from zmq.h. Do note that sometimes the list changes due to additions/deprecations in the underlying zeromq2 library. We try to do our best to make things available (at least to warn you that some symbols are deprecated), but it may not always be possible.
-
-=item ZMQ::Context
-
-=item ZMQ::Socket
-
-=item ZMQ::Message
-
-L<ZMQ::Context>, L<ZMQ::Socket>, L<ZMQ::Message> contain the high-level, more perl-ish interface to the zeromq functionalities.
-
-=item ZMQ
-
-Loading C<ZMQ> will make the L<ZMQ::Context>, L<ZMQ::Socket>, and 
-L<ZMQ::Message> classes available as well.
-
-=back
-
-=head1 BASIC USAGE
-
-To start using ZMQ, you need to create a context object, then as many ZMQ::Socket as you need:
-
-    my $ctxt = ZMQ::Context->new;
-    my $socket = $ctxt->socket( ... options );
-
-You need to call C<bind()> or C<connect()> on the socket, depending on your usage. For example on a typical server-client model you would write on the server side:
-
-    $socket->bind( "tcp://127.0.0.1:9999" );
-
-and on the client side:
-
-    $socket->connect( "tcp://127.0.0.1:9999" );
-
-The underlying zeromq library offers TCP, multicast, in-process, and ipc connection patterns. Read the zeromq manual for more details on other ways to setup the socket.
-
-When sending data, you can either pass a ZMQ::Message object or a Perl string. 
-
-    my $msg = ZMQ::Message->new( "a simple message" );
-    $socket->sendmsg( $msg );
-
-    $socket->send( "a simple message" ); 
-
-In most cases using ZMQ::Message is redundunt, so you will most likely use the string version.
-
-To receive, simply call C<recvmsg()> on the socket
-
-    my $msg = $socket->recvmsg;
-
-The received message is an instance of ZMQ::Message object, and you can access the content held in the message via the C<data()> method:
-
-    my $data = $msg->data;
-
-Or, you may choose use C<recv()>, if you know the amount of data you wanted to read
-
-    my $buf;
-    my $length = ...;
-    my $n_read = $socket->recv( $buf, $length );
-
-=head1 ERRORS
-
-Once you spot that a ZMQ operation failed either because an exception was raised or because the return value indicated an error, ZMQ errors are available either from C<zmq_errno()> and C<zmq_strerror()> functions, or the C<$!> global variable.
-
+    BEGIN {
+        $ENV{ PERL_ZMQ_BACKEND } = 'ZMQ::LibZMQ2';
+    }
     use ZMQ;
-    use ZMQ::Raw qw(zmq_errno);
-
-    ...
-    eval { $socket->connect(...) };
-
-    # then...
-    my $errno = zmq_errno();
-    warn zmq_strerror($errno);
-
-    # or...
-    warn "$!";
-
-=head1 ASYNCHRONOUS I/O WITH ZEROMQ
-
-By default ZMQ comes with its own zmq_poll() mechanism that can handle
-non-blocking sockets. You can use this by calling zmq_poll with a list of
-hashrefs:
-
-    zmq_poll([
-        {
-            fd => fileno(STDOUT),
-            events => ZMQ_POLLOUT,
-            callback => \&callback,
-        },
-        {
-            socket => $zmq_socket,
-            events => ZMQ_POLLIN,
-            callback => \&callback
-        },
-    ], $timeout );
-
-Unfortunately this custom polling scheme doesn't play too well with AnyEvent.
-
-As an alternative you can use getsockopt to retrieve the underlying file
-descriptor, so use that to integrate ZMQ and AnyEvent:
-
-    my $socket = zmq_socket( $ctxt, ZMQ_REP );
-    my $fh = zmq_getsockopt( $socket, ZMQ_FD );
-    my $w; $w = AE::io $fh, 0, sub {
-        while ( my $msg = zmq_recvmsg( $socket, ZMQ_RCVMORE ) ) {
-            # do something with $msg;
-        }
-        undef $w;
-    };
-
-=head1 NOTES ON MULTI-PROCESS and MULTI-THREADED USAGE
-
-ZMQ works on both multi-process and multi-threaded use cases, but you need
-to be careful bout sharing ZMQ objects.
-
-For multi-process environments, you should not be sharing the context object.
-Create separate contexts for each process, and therefore you shouldn't
-be sharing the socket objects either.
-
-For multi-thread environemnts, you can share the same context object. However
-you cannot share sockets.
 
 =head1 FUNCTIONS
 
-=head2 version()
+=head2 ZMQ::call( $funcname, @args )
 
-Returns the version of the underlying zeromq library that is being linked.
-In scalar context, returns a dotted version string. In list context,
-returns a 3-element list of the version numbers:
+Calls C<$funcname> via whichever backend loaded by ZMQ.pm. For example if
+ZMQ::LibZMQ2 is loaded:
 
-    my $version_string = ZMQ::version();
-    my ($major, $minor, $patch) = ZMQ::version();
+    use ZMQ;
 
-=head1 DEBUGGING XS
+    my $version = ZMQ::call( "zmq_version" ); # calls ZMQ::LibZMQ2::zmq_version
 
-If you see segmentation faults, and such, you need to figure out where the error is occuring in order for the maintainers to figure out what happened. Here's a very very brief explanation of steps involved.
-
-First, make sure to compile ZeroMQ.pm with debugging on by specifying -g:
-
-    perl Makefile.PL -g
-    make
-
-Then fire gdb:
-
-    gdb perl
-    (gdb) R -Mblib /path/to/your/script.pl
-
-When you see the crash, get a backtrace:
-
-    (gdb) bt
-
-Please put this in your bug report.
-
-=head1 CAVEATS
-
-This is an early release. Proceed with caution, please report
-(or better yet: fix) bugs you encounter.
-
-This module has been tested againt B<zeromq 3.1.1>. Semantics of this
-module rely heavily on the underlying zeromq version. Make sure
-you know which version of zeromq you're working with.
+If C<@args> is passed, they are passed directly to the target function.
 
 =head1 SEE ALSO
 
-L<ZMQ::Raw>, L<ZMQ::Context>, L<ZMQ::Socket>, L<ZMQ::Message>
-
 L<http://zeromq.org>
 
-L<http://github.com/lestrrat/ZMQ-Perl>
+L<http://github.com/lestrrat/p5-ZMQ>
 
 =head1 AUTHOR
 
 Daisuke Maki C<< <daisuke@endeworks.jp> >>
 
-Steffen Mueller, C<< <smueller@cpan.org> >>
-
 =head1 COPYRIGHT AND LICENSE
 
 The ZMQ module is
 
-Copyright (C) 2010 by Daisuke Maki
+Copyright (C) 2012 by Daisuke Maki
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.0 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+

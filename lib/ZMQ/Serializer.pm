@@ -19,11 +19,15 @@ sub ZMQ::Socket::recvmsg_as {
     }
 
     # XXX Must return in order to accomodate for DONTBLOCK
-    my $msg = $self->recvmsg( $flags, $flags ) or return;
+    my $method = $ZMQ::BACKEND eq 'ZMQ::LibZMQ2' ? 'recv' : 'recvmsg';
+    my $msg = $self->$method( $flags );
+    if (! $msg ) {
+        return;
+    }
     $deserializer->( $msg->data );
 }
 
-sub ZMQ::Socket::send_as {
+sub ZMQ::Socket::sendmsg_as {
     my ($self, $type, $data, $flags) = @_;
 
     my $serializer = ZMQ::Serializer->_get_serializer( $type );
@@ -31,7 +35,11 @@ sub ZMQ::Socket::send_as {
         Carp::croak("No serializer $type found");
     }
 
-    $self->send( $serializer->( $data ), $flags );
+    my $body = $serializer->( $data );
+    require bytes;
+
+    my $method = $ZMQ::BACKEND eq 'ZMQ::LibZMQ2' ? "send" : "sendmsg";
+    return $self->$method( $body, $flags );
 }
 
 1;
@@ -40,18 +48,21 @@ __END__
 
 =head1 NAME
 
-ZMQ::Serializer - Enable Serializers
+ZMQ::Serializer - Serialization Support
 
 =head1 SYNOPSIS
 
-    use ZMQ qw(:all);
+    use ZMQ;
     use ZMQ::Serializer;
+    use JSON ();
 
-    my $ctxt = ZMQ::Context->new;
-    my $socket = $ctxt->socket( ZMQ_REQ );
+    ZMQ::register_read_type(json => \&JSON::decode_json);
+    ZMQ::register_write_type(json => \&JSON::encode_json);
 
-    $socket->send_as( json => { foo => 1 } );
-    my $hash = $socket->recv_as( 'json' );
+    my $sock = $ctx->socket( ... );
+
+    $sock->sendmsg_as( json => $payload );
+    my $payload = $sock->recvmsg_as( 'json' );
 
 =head1 DESCRIPTION
 
@@ -90,8 +101,7 @@ can be written as:
 
     my $complex_perl_data_structure = $sock->recvmsg_as( 'json' );
 
-No serializers are loaded by default. Look for ZMQ::Serializer::*
-namespace in CPAN.
+No serializers are loaded by default. 
 
 =head1 FUNCTIONS
 
@@ -105,8 +115,14 @@ The callback receives the data received from the socket.
 Register a write callback for a given C<$name>. This is used in C<sendmsg_as()>
 The callback receives the Perl structure given to C<sendmsg_as()>
 
-=head1 SEE ALSO
+=head1 METHODS
 
-L<ZMQ::Serializer::JSON>
+=head2 $rv = sendmsg_as( $type, $payload, $flags )
+
+Encodes E<$payload> according to the serializer specified by C<$type>, and enqueues a new message to be sent. C<$payload> should be whatever the serializer understands.
+
+=head2 $payload = $sock->recvmsg_as( $type, $flags );
+
+Receives a new message from the queue, and decodes the payload in the received message using the deserializer specified by C<$type>.
 
 =cut
