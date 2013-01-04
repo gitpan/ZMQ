@@ -1,6 +1,6 @@
 package ZMQ;
 use strict;
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 our $BACKEND;
 BEGIN {
     $BACKEND ||= $ENV{PERL_ZMQ_BACKEND};
@@ -27,6 +27,7 @@ BEGIN {
 use ZMQ::Context;
 use ZMQ::Socket;
 use ZMQ::Message;
+use ZMQ::Poller;
 
 sub call {
     my $funcname = shift;
@@ -59,9 +60,9 @@ ZMQ - Perl-ish Interface libzmq
 
 =head1 DESCRIPTION
 
-ZMQ is a Perl-ish wrapper for libzmq. It uses ZMQ::LibZMQ2 or ZMQ::LibZMQ3 (ZMQ::LibZMQ2 is the default)
+ZMQ is a Perl-ish wrapper for libzmq. It uses ZMQ::LibZMQ2 or ZMQ::LibZMQ3 (ZMQ::LibZMQ2 is the default) as the actual backend.
 
-If you want a one-to-one direct mapping to libzmq, then you should be using ZMQ::LibZMQ2, ZMQ::LibZMQ3 directly
+If you want a one-to-one direct mapping to libzmq, then you should be using ZMQ::LibZMQ2 or ZMQ::LibZMQ3 directly
 
 ZMQ will automatically choose the backend (either ZMQ::LibZMQ2 or ZMQ::LibZMQ3) to use. This can be explicitly specified by setting C<PERL_ZMQ_BACKEND> environment variable.
 
@@ -99,6 +100,8 @@ If C<@args> is passed, they are passed directly to the target function.
 L<http://zeromq.org>
 
 L<http://github.com/lestrrat/p5-ZMQ>
+
+L<ZMQ::Context>, L<ZMQ::Message>, L<ZMQ::Socket>, L<ZMQ::Poller>
 
 =head1 AUTHOR
 
