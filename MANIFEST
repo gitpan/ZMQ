@@ -11,6 +11,7 @@ inc/Module/Install/WriteAll.pm
 lib/ZMQ.pm
 lib/ZMQ/Context.pm
 lib/ZMQ/Message.pm
+lib/ZMQ/Poller.pm
 lib/ZMQ/Serializer.pm
 lib/ZMQ/Socket.pm
 Makefile.PL
@@ -18,5 +19,7 @@ MANIFEST			This list of files
 META.yml
 t/001_compile.t
 t/101_threads.t
+t/201_poller.t
+t/202_poller_fd.t
 xt/999_pod-coverage.t
 xt/999_pod.t
