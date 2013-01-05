@@ -21,7 +21,7 @@ no_index:
     - xt
 requires:
   ZMQ::Constants: 0
-  ZMQ::LibZMQ2: 0
+  ZMQ::LibZMQ3: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.04
+version: 1.05

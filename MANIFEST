@@ -21,5 +21,6 @@ t/001_compile.t
 t/101_threads.t
 t/201_poller.t
 t/202_poller_fd.t
+t/203_send_multipart.t
 xt/999_pod-coverage.t
 xt/999_pod.t
