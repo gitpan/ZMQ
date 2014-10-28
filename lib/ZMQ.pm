@@ -1,6 +1,6 @@
 package ZMQ;
 use strict;
-our $VERSION = '1.05';
+our $VERSION = '1.06';
 our $BACKEND;
 BEGIN {
     $BACKEND ||= $ENV{PERL_ZMQ_BACKEND};
@@ -31,8 +31,9 @@ use ZMQ::Poller;
 
 sub call {
     my $funcname = shift;
+    my $func = "${BACKEND}::$funcname";
     no strict 'refs';
-    goto &{"${BACKEND}::$funcname"};
+    goto &{$func};
 }
 
 1;
